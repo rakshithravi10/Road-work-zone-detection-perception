@@ -1,24 +1,61 @@
-# Road Work Zone Detection Perception
+# Road Work Zone Detection & Perception
 
-Camera and LiDAR calibration, semantic segmentation, and 3D object detection for road work zone objects (construction barriers, traffic cones), built on a real vehicle sensor rig at Technische Hochschule Ingolstadt (THI).
+**Multi-camera/LiDAR calibration → semantic segmentation → 3D object detection**, built on a real research vehicle sensor rig at Technische Hochschule Ingolstadt (THI).
 
-This was a team project where each member completed individual technical tasks. The work documented here covers my individual contributions across three stages of the pipeline: sensor calibration, semantic segmentation, and 3D object detection.
+<p align="center">
+  <img src="task3_detection/sample_results/result_000031.png" width="850"/>
+  <br/>
+  <em>3D bounding boxes (PointPillars) projected onto the camera image — detected construction barriers and cones</em>
+</p>
+
+This was a team project where each member completed individual technical tasks. The work documented here covers my individual contributions across three pipeline stages: **sensor calibration**, **semantic segmentation**, and **3D object detection**.
+
+---
 
 ## Hardware Setup
 
-- 7 cameras (1920x1200 resolution) mounted on a research vehicle
+- 7 cameras (1920×1200) mounted on a research vehicle
 - Ouster LiDAR sensor
 - Real-world data captured on streets in and around Ingolstadt, Germany
+- ROS2 (tested on Ubuntu 24.04)
 
-## Pipeline Overview
+---
 
-### Task 1 — Multi-Camera Calibration and LiDAR Fusion
+## Pipeline at a Glance
+
+<table>
+<tr>
+<th>1. Calibration & Fusion</th>
+<th>2. Semantic Segmentation</th>
+<th>3. 3D Detection</th>
+</tr>
+<tr>
+<td><img src="assets/extrlidar1.png" width="280"/></td>
+<td><img src="task2_segmentation/sample_results/overlay_000000.png" width="280"/></td>
+<td><img src="task3_detection/sample_results/result_000000.png" width="280"/></td>
+</tr>
+<tr>
+<td align="center">LiDAR point cloud, RViz</td>
+<td align="center">Barrier/cone overlay, DeepLabV3+</td>
+<td align="center">3D boxes, PointPillars</td>
+</tr>
+</table>
+
+---
+
+## Task 1 — Multi-Camera Calibration & LiDAR Fusion
 `task1_calibration/`
 
-- Performed intrinsic calibration of all 7 cameras using the checkerboard method
-- Achieved mean reprojection errors as low as 0.12 pixels (cam1), with most cameras under 0.35 pixels
-- Computed LiDAR-to-camera extrinsic transformation matrices (4x4 SE3) using manual 3D-to-2D point correspondences
-- Verified full sensor fusion by projecting the LiDAR point cloud onto camera images and visualising in RViz
+- Intrinsic calibration of all 7 cameras using the checkerboard method
+- Mean reprojection errors as low as **0.12 px** (cam1), most cameras under 0.35 px
+- LiDAR-to-camera extrinsic transforms (4×4 SE3) via manual 3D↔2D point correspondences
+- Verified fusion by projecting the LiDAR point cloud onto camera images
+
+<p align="center">
+  <img src="assets/extrprojverif.png" width="700"/>
+  <br/>
+  <em>LiDAR point cloud projected onto camera image — fusion verification</em>
+</p>
 
 | Camera | Mean Reprojection Error (px) |
 |---|---|
@@ -30,57 +67,74 @@ This was a team project where each member completed individual technical tasks. 
 | cam2 | 0.43 |
 | cam6 | 0.56 |
 
-### Task 2 — Semantic Segmentation
+---
+
+## Task 2 — Semantic Segmentation
 `task2_segmentation/`
 
-- Annotated 87 real-world road work zone images captured on the THI vehicle rig
-- Two classes: construction barriers and traffic cones/pylons
-- Trained and evaluated a DeepLabV3+ model on the annotated dataset
-- Generated raw segmentation masks and overlay visualisations
+- Annotated 87 real-world road work zone images from the THI vehicle rig
+- 2 classes: **construction barriers**, **traffic cones/pylons**
+- Trained and evaluated DeepLabV3+ on the annotated dataset
 
-### Task 3 — 3D Object Detection
+<p align="center">
+  <img src="task2_segmentation/sample_results/000006_vis.png" width="850"/>
+  <br/>
+  <em>Original → predicted mask → overlay (red = barrier, yellow = cone)</em>
+</p>
+
+More examples (000000, 000005, 000017 — raw, mask, overlay) in [`task2_segmentation/sample_results/`](task2_segmentation/sample_results/).
+
+---
+
+## Task 3 — 3D Object Detection
 `task3_detection/`
 
-- Ran 3D object detection using PointPillars via OpenPCDet on LiDAR point cloud data
-- Generated KITTI-format labels for detected barriers and cones
-- Built an inference and visualisation pipeline projecting 3D bounding boxes onto camera images
-- Processed all 87 scenes end to end
+- 3D object detection using **PointPillars** (via OpenPCDet) on LiDAR point clouds
+- KITTI-format labels generated for detected barriers and cones
+- Inference + visualization pipeline projecting 3D boxes onto camera images
+- All 87 scenes processed end to end
+
+<table>
+<tr>
+<td><img src="task3_detection/sample_results/result_000005.png" width="420"/></td>
+<td><img src="task3_detection/sample_results/result_000017.png" width="420"/></td>
+</tr>
+</table>
+
+More results in [`task3_detection/sample_results/`](task3_detection/sample_results/) (includes KITTI label `.txt` files).
+
+---
 
 ## Repository Structure
 
-```
+```text
 road-work-zone-detection-perception/
 ├── task1_calibration/
 │   ├── camera_intrinsic_all_cams.py      # intrinsic calibration script
 │   ├── pnp_extrinsic_calibration.py      # extrinsic calibration script
 │   ├── cam1.yaml ... cam7.yaml           # per-camera intrinsic results
-│   └── extrinsic_cam1__TEST.json ...     # per-camera extrinsic (LiDAR-to-camera) results
+│   └── extrinsic_cam1__TEST.json ...     # per-camera extrinsic (LiDAR→camera) results
 ├── task2_segmentation/
 │   ├── main.py                           # DeepLabV3+ training entry point
-│   ├── rzdg_dataset.py                   # custom dataset loader for the THI road work zone data
-│   ├── training.log                      # real training run log
-│   └── sample_results/                   # example raw images, masks, and overlays
+│   ├── rzdg_dataset.py                   # custom dataset loader
+│   └── sample_results/                   # raw images, masks, overlays
 ├── task3_detection/
 │   ├── train_rzdg.py                     # PointPillars training script
 │   ├── test.py                           # inference script
 │   ├── rzdg.py                           # dataset handling for detection
 │   ├── voxel_module.py                   # voxelization module
-│   └── sample_results/                   # example KITTI-format labels and 3D box visualizations
-└── assets/                               # calibration and fusion verification screenshots
+│   └── sample_results/                   # KITTI-format labels + 3D box visualizations
+└── assets/                               # calibration & fusion verification screenshots
 ```
 
-## Sample Results
-
-`assets/` contains LiDAR point cloud and camera fusion verification screenshots from RViz.
-
-`task2_segmentation/sample_results/` contains raw camera images, generated segmentation masks, and DeepLabV3+ overlay outputs.
-
-`task3_detection/sample_results/` contains KITTI-format label files and camera images with projected 3D bounding boxes for detected barriers and cones.
+---
 
 ## Tech Stack
 
-Python, OpenCV, PyTorch, DeepLabV3+, PointPillars, OpenPCDet, ROS2, RViz, KITTI format
+`Python` · `OpenCV` · `PyTorch` · `DeepLabV3+` · `PointPillars` · `OpenPCDet` · `ROS2` · `RViz` · `KITTI format`
+
+---
 
 ## Notes
 
-This repository contains the code and results for my individual contributions to a team project. Cloned third-party libraries (OpenPCDet, DeepLabV3Plus-Pytorch base implementation, PointPillars base implementation) are not included here — only the scripts, configs, and results I produced.
+This repository contains the code and results for my individual contributions to a team project. Cloned third-party libraries (OpenPCDet, DeepLabV3Plus-Pytorch base implementation, PointPillars base implementation) are not included — only the scripts, configs, and results I produced.
